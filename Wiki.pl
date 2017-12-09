@@ -7,7 +7,6 @@ use Encode;
 use Data::Dumper;
 STDOUT->autoflush(1);
 
-
 use Win32::Console;
 our $env_ref;
 our $env_ref_name;
@@ -32,7 +31,7 @@ else
 {
     print "Target file Not exists! Will open default notes\n";
     sleep 1.0;
-    $File=encode('gbk', "E:\\备忘录\\notes.yaml");
+    $File=encode('gbk', ".\\notes.yaml");
 }
 
 $OUT->Cursor(1, 1, 99, 1);  #这里设置了光标高度，后面就不需要再设置了。
@@ -471,10 +470,8 @@ sub context_menu
 
         '2_信息' => {
             '0_编辑' => 'edit_notes',
-            '0_复制' => 'copy_to_clip',
-            '1_粘贴' => 'append_from_clip',
-            '2_清除' => 'delete_notes',
-            '3_+BANK' => 'BANK_to_notes',
+            '1_清除' => 'delete_notes',
+            '2_+BANK' => 'BANK_to_notes',
             '3_+ID'   => 'ID_to_notes',
         },
         
@@ -914,33 +911,6 @@ MENU_FUNC:
         goto GO_CONTINUE;
     }
 
-
-    sub append_from_clip 
-    {
-        our @prev;
-        our @indent;
-        my ($parent_ref, $path, $lv) = @_;
-        my $adjust;
-        use Win32::Clipboard;
-        my $clip = Win32::Clipboard->new();
-
-
-        $path=~/:([^:]+)$/;        #提取子键
-        if ( exists $parent_ref->{$1}{'note'} )
-        {
-            push @{$parent_ref->{$1}{'note'}},  split(/\r?\n/,$clip->GetText()) ;
-        }
-
-        $adjust = ( $lv == 0 ? 0 : $INDENT );
-        
-        $indent[$lv+1] = 
-            expand(
-                $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
-            );
-        no Win32::Clipboard;
-        goto GO_CONTINUE;
-    }
-
     sub edit_notes 
     {
         our @prev;
@@ -975,7 +945,7 @@ MENU_FUNC:
             expand(
                 $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
             );
-        no Win32::Clipboard;
+
         goto GO_CONTINUE;
     }
 
@@ -1028,7 +998,7 @@ MENU_FUNC:
             expand(
                 $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
             );
-        no Win32::Clipboard;
+
         goto GO_CONTINUE;
     }
 
@@ -1079,35 +1049,7 @@ MENU_FUNC:
             expand(
                 $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
             );
-        no Win32::Clipboard;
-        goto GO_CONTINUE;
-    }
 
-    sub copy_to_clip 
-    {
-        our @prev;
-        our @indent;
-        my ($parent_ref, $path, $lv) = @_;
-        my $adjust;
-        use Win32::Clipboard;
-        my $clip = Win32::Clipboard->new();
-
-
-        $path=~/:([^:]+)$/;        #提取子键
-        if ( exists $parent_ref->{$1}{'note'} )
-        {
-            $clip->Set(
-                join( "\r\n", @{$parent_ref->{$1}{'note'}} ) 
-            );
-        }
-
-        $adjust = ( $lv == 0 ? 0 : $INDENT );
-        
-        $indent[$lv+1] = 
-            expand(
-                $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
-            );
-        no Win32::Clipboard;
         goto GO_CONTINUE;
     }
 
@@ -1451,20 +1393,3 @@ ELSE_FUNCTION: {
         return sprintf("%d-%02d-%02d", $year+1900, $mon+1, $mday);
     }
 }
-
-
-
-
-__END__
-
-2015-08-17 修正粘贴表格信息出现大量 \33 等excel格式字符
-           信息-粘贴 函数改为GetText
-
-2015-08-17 在没有复制任何条目的时候，直接粘贴出现错误
-           paste_tree 函数添加 $env_ref_name 定义的判断
-
-V2.0 2015-09-01
-
-2015-11-27 在显示某个条目详细内容时，可以标记选定部分内容并复制
-2015-11-28 处理按s键保存之后光标无响应的问题
-           
