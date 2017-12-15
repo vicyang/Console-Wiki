@@ -1,13 +1,15 @@
 ﻿use utf8;
 use strict;
 no strict 'refs';
+use feature 'state';
 use Time::HiRes 'sleep';
 use IO::Handle;
 use Encode;
-use Data::Dumper;
+use Storable qw/freeze thaw/;
+use File::Slurp;
+use Win32::Console;
 STDOUT->autoflush(1);
 
-use Win32::Console;
 our $env_ref;
 our $env_ref_name;
 our ($MAX_COL, $MAX_LINE) = (120, 30);
@@ -30,8 +32,7 @@ if ( defined $ARGV[0] and (-e $ARGV[0]) )
 else
 {
     print "Target file Not exists! Will open default notes\n";
-    sleep 1.0;
-    $File=encode('gbk', ".\\notes.yaml");
+    $File = encode('gbk', ".\\Notes.db");
 }
 
 $OUT->Cursor(1, 1, 99, 1);  #这里设置了光标高度，后面就不需要再设置了。
@@ -40,8 +41,7 @@ $OUT->Cursor(1, 1, 99, 1);  #这里设置了光标高度，后面就不需要再
 $IN->Mode(ENABLE_MOUSE_INPUT);
 $OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
 
-
-my %hash;
+my %hash = ();
 my @info;
 
 =info Struct
@@ -68,7 +68,7 @@ my @info;
     )
 =cut
 
-&load_data(\%hash, $File);
+&load_data( \%hash, $File );
 
 GO_BACK:
 #首列
@@ -262,7 +262,6 @@ sub expand
     }
     return $max+$indent;
 }
-
 
 sub show_detail 
 {
@@ -1279,112 +1278,41 @@ IN_AREA: {
     }
 }
 
-LOAD_SAVE: {
+LOAD_AND_SAVE:
+{
     sub load_data
     {
-        my ($hashref, $file) = @_;
-        local $/;
-        $/ = "";
-        my $rf = {};
+        my ($href, $file) = @_;
+        my $ref;
         if ( -e $file ) 
         {
-            use YAML 'Load';
-            local $YAML::SortKeys;
-            $YAML::SortKeys = 2;
-            open READ,"<:raw:crlf", $file or warn "$!\n";
-            $rf = Load(<READ>);
-            close READ;
+            my $stream = read_file( $file, binmode => ':raw' );
+            $ref = thaw( $stream );
         }
-
-        if ( (keys %$rf) < 1 ) 
-        {
-            $rf = {
-                'Main' => {
-                    'note'=>[],
-                },
-            };
-        }
-
-        %$hashref = %$rf;
+        if ( (keys %$ref) < 1 ) { $ref = { 'Main' => { 'note'=>[] } } }
+        %$href = %$ref;
     }
 
     sub save 
     {
-        use YAML 'Dump';
-        local $YAML::Indent;
-        local $YAML::SortKeys;
-        my ($hashref, $file) = @_;
-        $YAML::Indent = 4;
-        $YAML::SortKeys = 2;
-        
-        my $path;
-        my $file2;
-        $path = __FILE__;
-        $path =~ s/\\[^\\]+$//;
-
-        $file2 = $file;
-        $file2 =~ s/\//\\/g;
-        system("\"$path\\wiki_backup.bat\" \"$file2\"");
+        my ($href, $file) = @_;
         $IN->Mode(ENABLE_MOUSE_INPUT);
-
-        open WRT, ">:raw:crlf", $file or warn "$!";
-        print WRT Dump($hashref);
-        close WRT;
-
-        no YAML;
+        write_file( $file, { binmode=>":raw" }, freeze($href) );
     }
 
     sub logfile 
     {
-        use feature 'state';
         state $i = 0;
         my $fname = ".\\log.txt";
 
-        if ($i == 0) {
-            open WRT,">:raw", $fname or die "$!";
-        } else {
-            open WRT,">>:raw", $fname or die "$!";
-        }
-        print WRT shift;
-        close WRT;
+        if ($i == 0) { write_file( $fname, shift ) } 
+        else         { write_file( $fname, { append => 1 }, shift ) }
         $i++;
     }
 }
 
-ELSE_FUNCTION: {
-    sub tabformat 
-    {
-        my $ref=shift;
-        my @col;
-        my $n;
-        my @tmpr;
-        my @new_array;
-        foreach (@$ref) 
-        {
-            @tmpr=split("\t",$_);
-            foreach $n (0..$#tmpr) 
-            {
-                push @col,0 if (! defined $col[$n]);
-                if ( length($tmpr[$n]) > $col[$n]) 
-                {
-                    $col[$n]=length($tmpr[$n]);
-                }
-            }
-        }
-
-        my $m=0;
-        foreach (@$ref) 
-        {
-            @tmpr=split("\t",$_);
-            foreach $n (0..$#tmpr) 
-            {
-                $new_array[$m].= sprintf("%-${col[$n]}s  ", $tmpr[$n]);
-            }
-            $m++;
-        }
-        return @new_array;
-    }
-
+ELSE_FUNCTION: 
+{
     sub get_date 
     {
         my (
