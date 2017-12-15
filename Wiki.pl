@@ -41,10 +41,10 @@ $OUT->Cursor(1, 1, 99, 1);  #这里设置了光标高度，后面就不需要再
 $IN->Mode(ENABLE_MOUSE_INPUT);
 $OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
 
-my %hash = ();
+my %hash;
 my @info;
 
-=info Struct
+=struct
     存储不同层次下的菜单列表信息
     @info = (
         {                  # ---> level 0
@@ -1074,8 +1074,8 @@ MENU_FUNC:
     }
 }
 
-COMMAND: {
-
+COMMAND: 
+{
     sub lineInput 
     {
         our $IN_DEFAULT;
@@ -1213,52 +1213,40 @@ COMMAND: {
     }
 }
 
-IN_AREA: {
-    sub inRange {
-        my ($a,$x,$b) = @_;
-        if ($a<=$x and $b>=$x) {
-            return 1;
-        } else {
-            return 0;
-        }
+IN_AREA: 
+{
+    sub inRange 
+    {
+        my ($a, $x, $b) = @_;
+        if ($a<=$x and $b>=$x) { return 1 } 
+        else                   { return 0 }
     }
 
-    sub inRect {
+    sub inRect 
+    {
         my ( $x, $y, $left, $top, $right, $buttom ) = @_;
-        if (    
-                inRange($left, $x, $right) 
-                and
-                inRange($top, $y, $buttom)
-            ) 
-        {
-            return 1;
-        } else {
-            return 0;
-        }
+        if ( inRange($left, $x, $right) and inRange($top, $y, $buttom) ) 
+             { return 1 } 
+        else { return 0 }
     }
 
-    sub inItem {
+    sub inItem 
+    {
         my ( $hash, $mx, $my ) = @_;
         return 0 if (! defined $$hash{length});
 
-        if (
-            $$hash{x} <= $mx 
-                    and 
-            ($$hash{length}+$$hash{x}) >= $mx 
-                    and 
-            $$hash{y} == $my
-            ) 
-        {
-            return 1;
-        } else {
-            return 0;
-        }
+        if ( $$hash{x} <= $mx 
+             and $$hash{y} == $my 
+             and ($$hash{length}+$$hash{x}) >= $mx )
+             { return 1 } 
+        else { return 0 }
 
         #本函数原来有个BUG，当使用一个空的hash调用的时候，
         #$hash{x} {y} {length}都为空，但是被作为0计算，当坐标刚好位于0,0 的时候，问题就出来了
     }
 
-    sub inDetail {
+    sub inDetail 
+    {
         my ( $hash, $mx, $my ) = @_;
 
         return 0 if (! defined $$hash{length});
