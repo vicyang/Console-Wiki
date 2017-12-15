@@ -1283,14 +1283,12 @@ LOAD_AND_SAVE:
     sub load_data
     {
         my ($href, $file) = @_;
-        my $ref;
         if ( -e $file ) 
         {
             my $stream = read_file( $file, binmode => ':raw' );
-            $ref = thaw( $stream );
+            %$href = %{ thaw( $stream ) };
         }
-        if ( (keys %$ref) < 1 ) { $ref = { 'Main' => { 'note'=>[] } } }
-        %$href = %$ref;
+        if ( (keys %$href) < 1 ) { %$href = ( 'Main' => { 'note'=>[] } ) }
     }
 
     sub save 
