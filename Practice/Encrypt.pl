@@ -10,11 +10,11 @@ our $key = "password";
 
 Encrypt:
 {
+    last if -e $enc_file;
     my $cipher = Crypt::CBC->new( -key => $key, -cipher => 'Blowfish' );
     my $string = join("\n", 
-                map {
-                    join ("", map { ('A'..'Z')[rand(26)] } (1..79) )
-                } (1..50) );
+                map { join ("", map { ('A'..'Z')[rand(26)] } (1..79) ) } (1..50) 
+            );
 
     my $ciphertext = $cipher->encrypt( $string );
     write_file( $enc_file, { binmode => ":raw" }, $ciphertext );
