@@ -41,6 +41,7 @@ $OUT->Cursor(1, 1, 99, 1);  #这里设置了光标高度，后面就不需要再
 $IN->Mode(ENABLE_MOUSE_INPUT);
 $OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
 
+our $sublime = "C:\\Program Files\\Sublime Text 3\\sublime_text.exe";
 my %hash;
 my @info;
 
@@ -218,7 +219,7 @@ sub expand
 
     %$info=();
     my $tkid;
-    foreach my $kid (sort keys %$ref)
+    for my $kid (sort keys %$ref)
     {
         next if ($kid eq 'note');     #跳过笔记标记
         $tkid = $kid;
@@ -246,7 +247,7 @@ sub expand
         };
     }
 
-    foreach ( @fold, @file) 
+    for ( @fold, @file) 
     {    
         $$info{$_}{"y"} = $cy++;
         $$info{$_}{"length"} = $max;
@@ -329,22 +330,13 @@ sub show_info
     my @detail;
     my @notes;
 
-    if ( exists $info->{'self'}{'note'} ) 
-    {
-        @notes = @{ $info->{'self'}{'note'} };
-    } 
-    else 
-    {
-        @notes = ();
-    }
+    if ( exists $info->{'self'}{'note'} ) { @notes = @{ $info->{'self'}{'note'} } } 
+    else                                  { @notes = () }
 
     $tmpstr=join("\n", @notes );
-    if ($tmpstr=~/\t[^\t]+\t/) 
-    {
-        @detail = tabformat( \@notes );
-    }
+    if ($tmpstr=~/\t[^\t]+\t/) { @detail = tabformat( \@notes ) }
 
-    foreach ( @notes ) 
+    for ( @notes ) 
     {
         $i++;
         $nn=sprintf("%02d ",$i);
@@ -392,7 +384,8 @@ sub show_info
     }
 }
 
-FILL_CLEAR: {
+FILL_AND_CLEAR:
+{
     sub ClearLight 
     {
         my $hash = shift;
@@ -411,7 +404,7 @@ FILL_CLEAR: {
     {
         my ($left, $right, $top, $bottom) = @_;
         my $delta=$right-$left;
-        foreach ($top..$bottom) {
+        for ($top..$bottom) {
             $OUT->FillChar(" ", $delta, $left, $_);
             $OUT->FillAttr($FG_WHITE | $BG_CYAN, $delta, $left, $_);
         }
@@ -421,7 +414,7 @@ FILL_CLEAR: {
     {
         my ($color, $left, $right, $top, $bottom) = @_;
         my $delta = $right - $left;
-        foreach ($top .. $bottom) {
+        for ($top .. $bottom) {
             $OUT->FillChar(" ", $delta, $left, $_);
             $OUT->FillAttr($color, $delta, $left, $_);
         }
@@ -468,10 +461,11 @@ sub context_menu
         '4_删除' => 'delete_item',
 
         '2_信息' => {
-            '0_编辑' => 'edit_notes',
-            '1_清除' => 'delete_notes',
-            '2_+BANK' => 'BANK_to_notes',
-            '3_+ID'   => 'ID_to_notes',
+            '0_Notepad'      => 'notepad',
+            '1_Sublime text' => 'sublime_text',
+            '2_清除'  => 'delete_notes',
+            '3_+BANK' => 'BANK_to_notes',
+            '4_+ID'   => 'ID_to_notes',
         },
         
         '3_新建' => {
@@ -589,7 +583,7 @@ sub expand_menu
 
     %$info=();
     my $tkid;
-    foreach my $kid (sort keys %$ref)
+    for my $kid (sort keys %$ref)
     {
         next if ($kid eq 'note');
 
@@ -625,7 +619,7 @@ sub expand_menu
 
     }
 
-    foreach ( @fold, @file ) 
+    for ( @fold, @file ) 
     {
         $$info{$_}{"y"} = $cy++;
         $$info{$_}{"length"} = $max;
@@ -910,7 +904,7 @@ MENU_FUNC:
         goto GO_CONTINUE;
     }
 
-    sub edit_notes 
+    sub notepad
     {
         our @prev;
         our @indent;
@@ -921,21 +915,55 @@ MENU_FUNC:
         $path=~/:([^:]+)$/;        #提取子键
         if ( exists $parent_ref->{$1}{'note'} )
         {
+        	#写入临时文件
             use File::Temp 'tempfile';
             my ($fh, $fname) = tempfile();
             print $fh join( "\r\n", @{$parent_ref->{$1}{'note'}} );
             $fh->close();
             no File::Temp;
-            system("notepad $fname");
-            open READ, "<:raw", $fname or warn "$!";
 
-            @{$parent_ref->{$1}{'note'}} = <READ>;
-            for my $i ( @{$parent_ref->{$1}{'note'}} ) 
-            {
-                $i=~s/\r\n$//;
-            }
-            
-            close READ;
+            #打开记事本编辑
+            system("notepad $fname");
+
+            #编辑完成后重新读入
+            @{$parent_ref->{$1}{'note'}} = read_file( $fname );
+            grep { s/\r?\n$//; } ( @{$parent_ref->{$1}{'note'}} );
+        }
+
+        $adjust = ( $lv == 0 ? 0 : $INDENT );
+        
+        $indent[$lv+1] = 
+            expand(
+                $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
+            );
+
+        goto GO_CONTINUE;
+    }
+
+    sub sublime_text
+    {
+        our @prev;
+        our @indent;
+        my @arr;
+        my ($parent_ref, $path, $lv) = @_;
+        my $adjust;
+
+        $path=~/:([^:]+)$/;        #提取子键
+        if ( exists $parent_ref->{$1}{'note'} )
+        {
+        	#写入临时文件
+            use File::Temp 'tempfile';
+            my ($fh, $fname) = tempfile();
+            print $fh join( "\r\n", @{$parent_ref->{$1}{'note'}} );
+            $fh->close();
+            no File::Temp;
+
+            #Sublime text
+            system("\"$sublime\" $fname");
+
+            #编辑完成后重新读入
+            @{$parent_ref->{$1}{'note'}} = read_file( $fname );
+            grep { s/\r?\n$//; } ( @{$parent_ref->{$1}{'note'}} );
         }
 
         $adjust = ( $lv == 0 ? 0 : $INDENT );
