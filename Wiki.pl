@@ -1,19 +1,21 @@
-﻿use utf8;
-use strict;
-no strict 'refs';
+﻿use warnings;
+use utf8;
 use feature 'state';
 use Time::HiRes 'sleep';
-use IO::Handle;
-use Encode;
+use Encode qw/from_to encode decode/;
 use Storable qw/freeze thaw/;
 use File::Slurp;
+use File::Temp 'tempfile';
 use Win32::Console;
+
+use IO::Handle;
 STDOUT->autoflush(1);
 
 our $env_ref;
 our $env_ref_name;
 our ($MAX_COL, $MAX_LINE) = (120, 30);
 our $MATRIX = $MAX_COL * $MAX_LINE;
+our $BOM = "\xef\xbb\xbf";
 
 our $IN = Win32::Console->new(STD_INPUT_HANDLE);
 our $OUT= Win32::Console->new(STD_OUTPUT_HANDLE);
@@ -31,7 +33,7 @@ if ( defined $ARGV[0] and (-e $ARGV[0]) )
 }
 else
 {
-    print "Target file Not exists! Will open default notes\n";
+    $OUT->Title("Default - Notes.db");
     $File = encode('gbk', ".\\Notes.db");
 }
 
@@ -41,8 +43,6 @@ $OUT->Cursor(1, 1, 99, 1);  #这里设置了光标高度，后面就不需要再
 $IN->Mode(ENABLE_MOUSE_INPUT);
 $OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
 
-our $sublime = "C:\\Program Files\\Sublime Text 3\\sublime_text.exe";
-our $BOM = "\xef\xbb\xbf";
 
 my %hash;
 my @info;
@@ -75,8 +75,8 @@ my @info;
 
 GO_BACK:
 #首列
-our @indent=(1);
-@info=();
+our @indent = (1);
+@info = ();
 $indent[1] = &expand(\%hash, \%{$info[0]}, "", $indent[0]);  #first key=""
 
 our @prev=();
@@ -93,8 +93,9 @@ while (1)
     sleep 0.02;
     my @arr = $IN->Input();
     my $inside;
+    next if ( $#arr < 0 );
 
-    if ($arr[0]==2) #arr[0] -> key or mouse, [1] -> mouse x, [2] -> mouse y
+    if ( $arr[0] == 2 ) #arr[0] -> key or mouse, [1] -> mouse x, [2] -> mouse y
     {
         ($mx, $my) = ($arr[1], $arr[2]);
         $inside = 0;
@@ -140,8 +141,8 @@ while (1)
                         );
 
                     #移除当前条目上一次的光标
-                    ClearLight( $info[$i]{$prev[$i]} );
-                    $prev[$i]=$path;
+                    ClearLight( $info[$i]{$prev[$i]} ) if defined $prev[$i];
+                    $prev[$i] = $path;
                 }
 
                 #显示信息摘要 
@@ -184,7 +185,7 @@ while (1)
 
         $OUT->Cursor($mx, $my);
     } 
-    elsif ($arr[0]==1 and $arr[1]==1 and $arr[5]==27) 
+    elsif ($arr[0]==1 and $arr[1]==1 and $arr[5]==27)
     {
         &save(\%hash, $File);
         $OUT->Cls();
@@ -275,33 +276,29 @@ sub show_detail
     my $IN_MODE_RECORD;
     my $tmpstr;
     $BACKUP = $OUT->ReadRect(1, 1, $MAX_COL, $MAX_LINE);
-
     $IN_MODE_RECORD = $IN->Mode();
 
 SHOW:
     $OUT->Cls();
     $OUT->Cursor(0,1);    #从第一行开始写信息
 
-    my @detail;
-    $tmpstr = join("\n", @{ $item_ref->{'note'} });
-    if ($tmpstr=~/\t[^\t]+\t/) 
-    {
-        @detail = &tabformat( $item_ref->{'note'} );
-        print join("\n", @detail);
-    } else {
-        print $tmpstr;
-    }
+    $tmpstr = $item_ref->{'note'};
+    from_to($tmpstr, 'utf8', 'gbk');
+    print $tmpstr;
 
     $IN->Mode($IN_DEFAULT);
     my $inp;
     while (1) 
     {
         sleep 0.1;
-        @arr=$IN->Input();
-        if ($arr[0]==1 and $arr[5]==27) {
+        @arr = $IN->Input();
+        if ($arr[0]==1 and $arr[5]==27) 
+        {
             $IN->Mode($IN_MODE_RECORD);
             last;
-        } elsif ($arr[0]==1 and $arr[3]==17) {  #control
+        }
+        elsif ($arr[0]==1 and $arr[3]==17) #control
+        {
             $inp = inputBar( $item_ref );
             $IN->Mode($IN_MODE_RECORD);
             $OUT->Cursor(0, 0);
@@ -332,30 +329,29 @@ sub show_info
     my @detail;
     my @notes;
 
-    if ( exists $info->{'self'}{'note'} ) { @notes = @{ $info->{'self'}{'note'} } } 
-    else                                  { @notes = () }
-
-    $tmpstr=join("\n", @notes );
-    if ($tmpstr=~/\t[^\t]+\t/) { @detail = tabformat( \@notes ) }
+    if ( exists $info->{'self'}{'note'} ) 
+    { 
+        $tmpstr = $info->{'self'}{'note'};
+        from_to($tmpstr, 'utf8', 'gbk');
+        @notes = split /\r?\n/, $tmpstr;
+    }
+    else { @notes = () }
 
     for ( @notes ) 
     {
         $i++;
-        $nn=sprintf("%02d ",$i);
-        if ($#detail < 0) {
-            $tmpstr=$_;
-            $tmpstr=~s/\t/ /g;
-            $tmpstr=substr($nn . $tmpstr, 0, $col_area);
-        } else {
-            $tmpstr=substr($nn . $detail[$i-1], 0, $col_area);
-        }
+        $nn = sprintf("%02d ", $i);
+        $tmpstr = $_;
+        $tmpstr =~s/\t/    /g;
+        $tmpstr = substr($nn . $tmpstr, 0, $col_area);
+
         $OUT->Cursor($cx, $cy);
         $OUT->Write( $tmpstr );
         $OUT->FillAttr($FG_YELLOW|$BG_CYAN, $col_area, $cx, $cy++);
         last if ($cy >= ($MAX_LINE-1));
     }
     
-    if ($i==0) 
+    if ( $i == 0 )
     {
         $OUT->Cursor($cx, $cy);
         $OUT->Write("There is nothing");
@@ -363,11 +359,7 @@ sub show_info
     }
 
     #循环：当鼠标移开时恢复原来的信息
-    my ($x, $y, $len) = (
-        $info->{'x'}, 
-        $info->{'y'}, 
-        $info->{'length'}
-    );
+    my ($x, $y, $len) = @{$info}{'x', 'y', 'length'};
 
     while (1) 
     {
@@ -399,7 +391,7 @@ FILL_AND_CLEAR:
     {
         my $hash = shift;
         $OUT->FillAttr($FG_YELLOW | $BG_BLUE, $$hash{length}, $$hash{x}, $$hash{y});
-        $$hash{light}=0;
+        $$hash{light} = 0;
     }
 
     sub ClearRect 
@@ -463,8 +455,8 @@ sub context_menu
         '4_删除' => 'delete_item',
 
         '2_信息' => {
-            '0_Notepad'      => 'notepad',
-            '1_Sublime text' => 'sublime_text',
+            '0_notepad'      => 'notepad',
+            '1_vim'   => 'vim',
             '2_清除'  => 'delete_notes',
             '3_+BANK' => 'BANK_to_notes',
             '4_+ID'   => 'ID_to_notes',
@@ -549,7 +541,7 @@ CONTEXT_WHILE: while (1)
                             );
 
                         #移除当前条目上一次的光标
-                        ClearLight_menu( $menu_inf[$i]{$prev[$i]} );
+                        ClearLight_menu( $menu_inf[$i]{$prev[$i]} ) if defined $prev[$i];
                         HighLightItem( $menu_inf[$i]{$m_path} );
                         $prev[$i]=$m_path;
                     }
@@ -657,7 +649,7 @@ MENU_FUNC:
         }
 
         $parent_ref->{"$newkey"} = {
-            'note' => [], 
+            'note' => undef,
         };
         undef $prev[$lv];               #取消上一次高亮菜单的记录
 
@@ -690,7 +682,7 @@ MENU_FUNC:
         }
 
         $parent_ref->{$last_key}{$newkey} = {
-            'note'=>[],
+            'note' => undef,
         };
         undef $prev[$lv];               #取消上一次高亮菜单的记录
 
@@ -721,7 +713,7 @@ MENU_FUNC:
         }
 
         $parent_ref->{$last_key}{$newkey} = {
-            'note'=>[],
+            'note' => undef,
         };
         undef $prev[$lv];               #取消上一次高亮菜单的记录
 
@@ -832,19 +824,19 @@ MENU_FUNC:
         if ( exists $parent_ref->{$1}{'note'} )
         {
         	#写入临时文件
-            use File::Temp 'tempfile';
             my ($fh, $fname) = tempfile();
             print $fh $BOM;
-            print $fh join( "\r\n", @{$parent_ref->{$1}{'note'}} );
+            print $fh $parent_ref->{$1}{'note'};
             $fh->close();
-            no File::Temp;
 
             #打开记事本编辑
             system("notepad $fname");
 
-            #编辑完成后重新读入
-            @{$parent_ref->{$1}{'note'}} = read_file( $fname );
-            grep { s/\r?\n$//; } ( @{$parent_ref->{$1}{'note'}} );
+            #编辑完成后重新读入，删除BOM
+            $parent_ref->{$1}{'note'} = read_file( $fname, { binmode => ":raw" } );
+            $parent_ref->{$1}{'note'} =~s/^$BOM//;
+
+            unlink $fname;
         }
 
         $adjust = ( $lv == 0 ? 0 : $INDENT );
@@ -857,7 +849,7 @@ MENU_FUNC:
         goto GO_CONTINUE;
     }
 
-    sub sublime_text
+    sub vim
     {
         our @prev;
         our @indent;
@@ -869,24 +861,21 @@ MENU_FUNC:
         if ( exists $parent_ref->{$1}{'note'} )
         {
         	#写入临时文件
-            use File::Temp 'tempfile';
             my ($fh, $fname) = tempfile();
-            print $fh join( "\r\n", @{$parent_ref->{$1}{'note'}} );
+            print $fh $parent_ref->{$1}{'note'};
             $fh->close();
-            no File::Temp;
-
-            #Sublime text
-            system("\"$sublime\" $fname");
+            
+            #vim
+            system("vim -c \"set noswapfile | set nobackup | set noundofile\" $fname");
 
             #编辑完成后重新读入
-            @{$parent_ref->{$1}{'note'}} = read_file( $fname );
-            grep { s/\r?\n$//; } ( @{$parent_ref->{$1}{'note'}} );
+            $parent_ref->{$1}{'note'} = read_file( $fname, { binmode => ":raw" } );
+            unlink $fname;
         }
 
         $adjust = ( $lv == 0 ? 0 : $INDENT );
         
-        $indent[$lv+1] = 
-            expand(
+        $indent[$lv+1] = expand(
                 $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
             );
 
@@ -904,42 +893,26 @@ MENU_FUNC:
         $path=~/:([^:]+)$/;        #提取子键
         if ( exists $parent_ref->{$1}{'note'} )
         {
-            use File::Temp 'tempfile';
-            my ($fh, $fname) = tempfile();
-            print $fh join( "\r\n", @{$parent_ref->{$1}{'note'}} ),"\r\n";
-            print $fh 
-            (
-                encode('gbk', " "x4 . " website: \r\n"),
-                encode('gbk', " "x4 . "  E-mail: \r\n"),
-                encode('gbk', " "x4 . "nickname: \r\n"),
-                encode('gbk', " "x4 . "      ID: \r\n"),
-                encode('gbk', " "x4 . "    code: \r\n"),
-                encode('gbk', " "x4 . "   问题1: \r\n"),
-                encode('gbk', " "x4 . "   答案1: \r\n"),
-                encode('gbk', " "x4 . "   问题2: \r\n"),
-                encode('gbk', " "x4 . "   答案2: \r\n"),
-                encode('gbk', " "x4 . "    备注: \r\n"),
-                encode('gbk', " "x4 . "    date: \r\n\r\n"),
-            );
-
-            $fh->close();
-            no File::Temp;
-            system("notepad $fname");
-            open READ, "<:raw", $fname or warn "$!";
-
-            @{$parent_ref->{$1}{'note'}} = <READ>;
-            for my $i ( @{$parent_ref->{$1}{'note'}} ) 
-            {
-                $i=~s/\r\n$//;
-            }
-            
-            close READ;
+            $parent_ref->{$1}{'note'} .=
+                encode('utf8', join("\r\n",
+                    " website: ",
+                    "  E-mail: ",
+                    "nickname: ",
+                    "      ID: ",
+                    "    code: ",
+                    "   问题1: ",
+                    "   答案1: ",
+                    "   问题2: ",
+                    "   答案2: ",
+                    "    备注: ",
+                    "    date: ", 
+                    ""
+                ));
         }
 
         $adjust = ( $lv == 0 ? 0 : $INDENT );
         
-        $indent[$lv+1] = 
-            expand(
+        $indent[$lv+1] = expand(
                 $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
             );
 
@@ -955,42 +928,26 @@ MENU_FUNC:
         my $adjust;
 
         $path=~/:([^:]+)$/;        #提取子键
-        if ( exists $parent_ref->{$1}{'note'} )
+        if ( exists $parent_ref->{$1}{'note'} ) 
         {
-            use File::Temp 'tempfile';
-            my ($fh, $fname) = tempfile();
-            print $fh join( "\r\n", @{$parent_ref->{$1}{'note'}} ),"\r\n";
-            print $fh 
-            (
-                encode('gbk', " "x4 . " 开行点: \r\n"),
-                encode('gbk', " "x4 . "   姓名: \r\n"),
-                encode('gbk', " "x4 . "   卡号: \r\n"),
-                encode('gbk', " "x4 . " 登录名: \r\n"),
-                encode('gbk', " "x4 . "passkey: \r\n"),
-                encode('gbk', " "x4 . "   code: \r\n"),
-                encode('gbk', " "x4 . " USBKey: \r\n"),
-                encode('gbk', " "x4 . "   mark: \r\n"),
-                encode('gbk', " "x4 . "   date: \r\n\r\n"),
-            );
-
-            $fh->close();
-            no File::Temp;
-            system("notepad $fname");
-            open READ, "<:raw", $fname or warn "$!";
-
-            @{$parent_ref->{$1}{'note'}} = <READ>;
-            for my $i ( @{$parent_ref->{$1}{'note'}} ) 
-            {
-                $i=~s/\r\n$//;
-            }
-            
-            close READ;
+            $parent_ref->{$1}{'note'} .= 
+                encode('utf8', join("\r\n",
+                    " 开行点: ",
+                    "   姓名: ",
+                    "   卡号: ",
+                    " 登录名: ",
+                    "passkey: ",
+                    "   code: ",
+                    " USBKey: ",
+                    "   mark: ",
+                    "   date: ", 
+                    ""
+                ));
         }
 
         $adjust = ( $lv == 0 ? 0 : $INDENT );
         
-        $indent[$lv+1] = 
-            expand(
+        $indent[$lv+1] = expand(
                 $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
             );
 
@@ -1007,7 +964,7 @@ MENU_FUNC:
         $path=~/:([^:]+)$/;        #提取子键
         if ( exists $parent_ref->{$1}{'note'} ) 
         {
-            $parent_ref->{$1}{'note'} = [];
+            $parent_ref->{$1}{'note'} = undef;
         }
 
         $adjust = ( $lv == 0 ? 0 : $INDENT );
@@ -1069,7 +1026,8 @@ COMMAND:
         $PREV_IN_MODE = $IN->Mode();
         $IN->Mode( $IN_DEFAULT );
 
-        while (1) {
+        while (1) 
+        {
             fill_line("-", $MAX_COL, $FG_YELLOW|$BG_CYAN, $line-1);
             fill_line("-", $MAX_COL, $FG_YELLOW|$BG_CYAN, $line+1);
             ClearRect(0, $MAX_COL, $line, $line);
@@ -1105,7 +1063,7 @@ COMMAND:
         my $PREV_RECT;
 
         $line = $MAX_LINE - 4;
-        $prompt="Command:";
+        $prompt="Input:";
         $PREV_RECT    = $OUT->ReadRect(0, $line-1, $MAX_COL, $line+1);
         $PREV_IN_MODE = $IN->Mode();
         $IN->Mode( $IN_DEFAULT );
@@ -1113,7 +1071,7 @@ COMMAND:
         while (1) 
         {
             $OUT->Cls();
-            $tmpstr = join("\n", @{$item_ref->{'note'}} );
+            $tmpstr = encode('gbk', decode('utf8', $item_ref->{'note'} ));
             $OUT->Cursor(0, 1);
             $OUT->Write( $tmpstr );
             fill_line("-", $MAX_COL, $FG_YELLOW|$BG_BLACK, $line-1);
@@ -1129,14 +1087,11 @@ COMMAND:
                 $line
             );
 
-            $inp=<STDIN>;
-            $inp=~s/\r?\n$//;
-            last if (lc($inp) eq "exit");
-            push( @{$item_ref->{'note'}}, $inp );
+            $inp = <STDIN>;
+            last if (lc($inp) eq "exit\n");
+            $inp =~s/([^\r])\n/$1\r\n/gs;
+            $item_ref->{'note'} .= $inp;
         }
-        
-
-        # MARK_2 待添加功能：命令处理： delete 编号、insert 编号、change 编号
 
         #    如果IN->Mode没有设置为原始状态，<STDIN>将无法退出。
         # $IN句柄在未设置时<STDIN>还是能够通过ENTER键结束行输入的
@@ -1180,11 +1135,11 @@ IN_AREA:
         my ( $hash, $mx, $my ) = @_;
         return 0 if (! defined $$hash{length});
 
-        if ( $$hash{x} <= $mx 
-             and $$hash{y} == $my 
-             and ($$hash{length}+$$hash{x}) >= $mx )
-             { return 1 } 
-        else { return 0 }
+        if ( $$hash{x} <= $mx and 
+             $$hash{y} == $my and 
+             ($$hash{length}+$$hash{x}) >= $mx 
+            ) { return 1 } 
+        else  { return 0 }
 
         #本函数原来有个BUG，当使用一个空的hash调用的时候，
         #$hash{x} {y} {length}都为空，但是被作为0计算，当坐标刚好位于0,0 的时候，问题就出来了
@@ -1196,18 +1151,13 @@ IN_AREA:
 
         return 0 if (! defined $$hash{length});
         # (length-1, length)
-        if (
-            ($$hash{length}+$$hash{x}-1) <= $mx
+        if ( ($$hash{length}+$$hash{x}-1) <= $mx
                         and
-            $mx < ($$hash{length}+$$hash{x}+1)
+              $mx < ($$hash{length}+$$hash{x}+1)
                         and
-            $$hash{y} == $my
-            )
-        {
-            return 1;
-        } else {
-            return 0;
-        }
+              $$hash{y} == $my
+           ) { return 1 } 
+        else { return 0 }
     }
 }
 
@@ -1221,7 +1171,7 @@ LOAD_AND_SAVE:
             my $stream = read_file( $file, binmode => ':raw' );
             %$href = %{ thaw( $stream ) };
         }
-        if ( (keys %$href) < 1 ) { %$href = ( 'Main' => { 'note'=>[] } ) }
+        if ( (keys %$href) < 1 ) { %$href = ( 'Main' => { 'note'=>undef } ) }
     }
 
     sub save 
