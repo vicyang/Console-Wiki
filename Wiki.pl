@@ -9,6 +9,7 @@ use File::Temp 'tempfile';
 use Win32::Console;
 
 use IO::Handle;
+
 STDOUT->autoflush(1);
 
 our $env_ref;
@@ -680,7 +681,7 @@ MENU_FUNC:
         }
 
         $parent_ref->{$last_key}{$newkey} = {
-            'note' => undef,
+            'note' => "",
         };
         undef $prev[$lv];               #取消上一次高亮菜单的记录
 
