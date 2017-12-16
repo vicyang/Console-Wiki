@@ -42,6 +42,8 @@ $IN->Mode(ENABLE_MOUSE_INPUT);
 $OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
 
 our $sublime = "C:\\Program Files\\Sublime Text 3\\sublime_text.exe";
+our $BOM = "\xef\xbb\xbf";
+
 my %hash;
 my @info;
 
@@ -469,10 +471,8 @@ sub context_menu
         },
         
         '3_新建' => {
-            '1_Normal' => 'add_sub_item',
-            '2_ID' => 'add_sub_item_ID',
-            '3_Bank' => 'add_sub_item_BANK',
-            '4_Date' => 'add_date_item',
+            '0_Normal' => 'add_sub_item',
+            '1_Date'   => 'add_date_item',
         },
 
     };
@@ -733,90 +733,6 @@ MENU_FUNC:
         goto GO_CONTINUE;
     }
 
-
-    sub add_sub_item_BANK
-    {
-        our @prev;
-        our @indent;
-        my ($parent_ref, $path, $lv) = @_;
-        my $newkey;
-        my $last_key;
-
-        $newkey = &lineInput();
-        return 0 if ($newkey eq 'exit');
-
-        $path=~/:([^:]+)$/;        #提取子键
-        $last_key = $1;
-        if ( exists $parent_ref->{$last_key}{$newkey} ) 
-        {
-            wrong("", "key exists");
-            return 0;   
-        }
-        $parent_ref->{$last_key}{$newkey} = {
-            'note' => [
-                encode('gbk', " "x4 . " 开行点: "),
-                encode('gbk', " "x4 . "   姓名: "),
-                encode('gbk', " "x4 . "   卡号: "),
-                encode('gbk', " "x4 . " 登录名: "),
-                encode('gbk', " "x4 . "passkey: "),
-                encode('gbk', " "x4 . "   code: "),
-                encode('gbk', " "x4 . " USBKey: "),
-                encode('gbk', " "x4 . "   mark: "),
-                encode('gbk', " "x4 . "   date: "),
-            ],
-        };
-        undef $prev[$lv];               #取消上一次高亮菜单的记录
-
-        my $adjust;
-        $adjust = ( $lv == 0 ? 0 : $INDENT );
-
-        $indent[$lv+1] = 
-            expand($parent_ref, $info[$lv], $path, $indent[$lv]+$adjust);
-        goto GO_CONTINUE;
-    }
-
-    sub add_sub_item_ID
-    {
-        our @prev;
-        our @indent;
-        my ($parent_ref, $path, $lv) = @_;
-        my $newkey;
-        my $last_key;
-
-        $newkey = &lineInput();
-        return 0 if ($newkey eq 'exit');
-
-        $path=~/:([^:]+)$/;        #提取子键
-        $last_key = $1;
-        if ( exists $parent_ref->{$last_key}{$newkey} ) 
-        {
-            wrong("", "key exists");
-            return 0;   
-        }
-        $parent_ref->{$last_key}{$newkey} = {
-            'note' => [
-                            '  website: ',
-                            '   E-mail: ',
-              encode('gbk', '       ID: '),
-              encode('gbk', '     昵称: '),
-              encode('gbk', ' 密码提示: '),
-              encode('gbk', '    问题1: '),
-              encode('gbk', '    答案1: '),
-              encode('gbk', '    问题2: '),
-              encode('gbk', '    答案2: '),
-              encode('gbk', '    其他 : '),
-            ],
-        };
-        undef $prev[$lv];               #取消上一次高亮菜单的记录
-
-        my $adjust;
-        $adjust = ( $lv == 0 ? 0 : $INDENT );
-
-        $indent[$lv+1] = 
-            expand($parent_ref, $info[$lv], $path, $indent[$lv]+$adjust);
-        goto GO_CONTINUE;
-    }
-
     sub rename_item 
     {
         our @prev;
@@ -918,6 +834,7 @@ MENU_FUNC:
         	#写入临时文件
             use File::Temp 'tempfile';
             my ($fh, $fname) = tempfile();
+            print $fh $BOM;
             print $fh join( "\r\n", @{$parent_ref->{$1}{'note'}} );
             $fh->close();
             no File::Temp;
