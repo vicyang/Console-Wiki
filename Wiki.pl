@@ -250,7 +250,7 @@ sub expand
         };
     }
 
-    for ( @fold, @file) 
+    for ( @fold, @file ) 
     {    
         $$info{$_}{"y"} = $cy++;
         $$info{$_}{"length"} = $max;
@@ -447,7 +447,6 @@ sub context_menu
     my @menu_inf = ();
     my $menus = 
     {
-
         '0_添加目录' => 'add_item',
         '1_重命名' => 'rename_item',
         '2_复制' => 'copy_tree',
@@ -455,8 +454,8 @@ sub context_menu
         '4_删除' => 'delete_item',
 
         '2_信息' => {
-            '0_notepad'      => 'notepad',
-            '1_vim'   => 'vim',
+            '0_notepad'  => 'notepad',
+            '1_Vim'      => 'vim',
             '2_清除'  => 'delete_notes',
             '3_+BANK' => 'BANK_to_notes',
             '4_+ID'   => 'ID_to_notes',
@@ -466,7 +465,6 @@ sub context_menu
             '0_Normal' => 'add_sub_item',
             '1_Date'   => 'add_date_item',
         },
-
     };
 
     #记录 并清理从左往右的区域
@@ -839,14 +837,12 @@ MENU_FUNC:
             unlink $fname;
         }
 
-        $adjust = ( $lv == 0 ? 0 : $INDENT );
-        
-        $indent[$lv+1] = 
-            expand(
-                $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
-            );
-
-        goto GO_CONTINUE;
+        # $adjust = ( $lv == 0 ? 0 : $INDENT );        
+        # $indent[$lv+1] = 
+        #     expand(
+        #         $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
+        #     );
+        #goto GO_CONTINUE;
     }
 
     sub vim
@@ -873,13 +869,8 @@ MENU_FUNC:
             unlink $fname;
         }
 
-        $adjust = ( $lv == 0 ? 0 : $INDENT );
-        
-        $indent[$lv+1] = expand(
-                $parent_ref, $info[$lv], $path, $indent[$lv]+$adjust
-            );
-
-        goto GO_CONTINUE;
+        #调用vim之后鼠标无响应，重新开启
+        $IN->Mode(ENABLE_MOUSE_INPUT);
     }
 
     sub ID_to_notes
