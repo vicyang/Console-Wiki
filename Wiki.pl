@@ -641,14 +641,14 @@ MENU_FUNC:
         $newkey = &lineInput();
         return 0 if ($newkey eq 'exit');
 
-        if ( exists $parent_ref->{"$newkey"} ) 
+        if ( exists $parent_ref->{$newkey} ) 
         {
             wrong("", "key exists");
             return 0;   
         }
 
-        $parent_ref->{"$newkey"} = {
-            'note' => undef,
+        $parent_ref->{$newkey} = {
+            'note' => "",
         };
         undef $prev[$lv];               #取消上一次高亮菜单的记录
 
@@ -712,7 +712,7 @@ MENU_FUNC:
         }
 
         $parent_ref->{$last_key}{$newkey} = {
-            'note' => undef,
+            'note' => "",
         };
         undef $prev[$lv];               #取消上一次高亮菜单的记录
 
