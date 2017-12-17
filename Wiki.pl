@@ -179,10 +179,6 @@ while (1)
             }
         }
 
-        if ($inside > 0) 
-        {
-        }
-
         $OUT->Cursor($mx, $my);
     } 
     elsif ($arr[0]==1 and $arr[1]==1 and $arr[5]==27)
@@ -803,6 +799,12 @@ MENU_FUNC:
         }
 
         $path=~/:([^:]+)$/;        #提取子键
+        if ( $env_ref_name eq $1 ) 
+        {
+            wrong("paste_tree", "Don't copy to same place!");
+            return;
+        }
+
         $parent_ref->{$1}{ $env_ref_name } = $env_ref;
 
         $adjust = ( $lv == 0 ? 0 : $INDENT );
@@ -864,8 +866,23 @@ MENU_FUNC:
             print $fh $parent_ref->{$1}{'note'};
             $fh->close();
             
+            my $vimcmd = 
+            	join("|", 
+					"set enc=utf-8",
+					"set fileencodings=utf-8,gbk",
+					"language messages zh_CN.utf-8",
+					"set smartindent",
+					"set tabstop=4",
+					"set shiftwidth=4",
+					"set expandtab",
+					"set softtabstop=4",
+					"set noswapfile",
+					"set nobackup",
+					"set noundofile"
+				);
+
             #vim
-            system("vim -c \"set noswapfile | set nobackup | set noundofile\" $fname");
+            system("vim -c \"$vimcmd\" $fname");
 
             #编辑完成后重新读入
             $parent_ref->{$1}{'note'} = read_file( $fname, { binmode => ":raw" } );
