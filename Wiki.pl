@@ -1,15 +1,14 @@
 ﻿use warnings;
 use utf8;
-use feature 'state';
-use Time::HiRes 'sleep';
-use Encode qw/from_to encode decode/;
-use Storable qw/freeze thaw/;
+use feature     qw/state/;
+use Time::HiRes qw/sleep time/;
+use Encode      qw/from_to encode decode/;
+use Storable    qw/freeze thaw/;
 use File::Slurp;
-use File::Temp 'tempfile';
+use File::Temp  qw/tempfile/;
 use Win32::Console;
 
 use IO::Handle;
-
 STDOUT->autoflush(1);
 
 our $env_ref;
@@ -291,8 +290,9 @@ SHOW:
     my $inp;
     while (1) 
     {
-        sleep 0.1;
+        sleep 0.02;
         @arr = $IN->Input();
+        next if $#arr < 0;
         if ($arr[0]==1 and $arr[5]==27) 
         {
             $IN->Mode($IN_MODE_RECORD);
@@ -366,7 +366,8 @@ sub show_info
     {
         sleep 0.03;
         @arr=$IN->Input();
-        if ($arr[0]==2)        #0 => key/mouse, 1 => x, 2 => y
+        next if $#arr < 0;
+        if ($arr[0] == 2)        #0 => key/mouse, 1 => x, 2 => y
         {   
             ($mx, $my) = ($arr[1], $arr[2]);
             $OUT->Cursor($mx, $my);
@@ -487,6 +488,7 @@ CONTEXT_WHILE: while (1)
     {
         sleep 0.03;
         @arr = $IN->Input();
+        next if $#arr < 0;
 
         my $inside = 0;
         if ($arr[0] == 2)   #鼠标操作
@@ -1163,7 +1165,7 @@ LOAD_AND_SAVE:
             my $stream = read_file( $file, binmode => ':raw' );
             %$href = %{ thaw( $stream ) };
         }
-        if ( (keys %$href) < 1 ) { %$href = ( 'Main' => { 'note'=>undef } ) }
+        if ( (keys %$href) < 1 ) { %$href = ( 'Main' => { 'note'=>"" } ) }
     }
 
     sub save 
