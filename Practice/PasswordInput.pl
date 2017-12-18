@@ -26,6 +26,8 @@ sub get_password
 {
     my @st;
     my $str = "";
+    print "Password:";
+
     while (1)
     {
         sleep 0.01;
@@ -65,5 +67,9 @@ sub decrypt
     my $cipher = Crypt::CBC->new( -key => $key, -cipher => 'Blowfish' );
     my $ciphertext = read_file( $file, binmode => ":raw" );
     my $plaintext  = $cipher->decrypt($ciphertext);
-    dump thaw($plaintext);
+    my $temp = $plaintext;
+    $temp=~s/./sprintf q(%x ),ord($&)/egxs;
+    say $temp;
+    say $plaintext;
+    #dump thaw($plaintext);
 }
