@@ -4,6 +4,7 @@ use feature     qw/state/;
 use Time::HiRes qw/sleep time/;
 use Encode      qw/from_to encode decode/;
 use Storable    qw/freeze thaw/;
+use Crypt::CBC;
 use File::Slurp;
 use File::Temp  qw/tempfile/;
 use Win32::Console;
@@ -11,18 +12,25 @@ use Win32::Console;
 use IO::Handle;
 STDOUT->autoflush(1);
 
-our $env_ref;
-our $env_ref_name;
-our ($MAX_COL, $MAX_LINE) = (120, 30);
-our $MATRIX = $MAX_COL * $MAX_LINE;
-our $BOM = "\xef\xbb\xbf";
+INIT
+{
+    our $env_ref;
+    our $env_ref_name;
+    our ($MAX_COL, $MAX_LINE) = (120, 30);
+    our $MATRIX = $MAX_COL * $MAX_LINE;
+    our $BOM = "\xef\xbb\xbf";
 
-our $IN = Win32::Console->new(STD_INPUT_HANDLE);
-our $OUT= Win32::Console->new(STD_OUTPUT_HANDLE);
-system("mode con cols=$MAX_COL");
-$OUT->Window(1, 0, 0, 119, 29);
+    our $IN = Win32::Console->new(STD_INPUT_HANDLE);
+    our $OUT= Win32::Console->new(STD_OUTPUT_HANDLE);
 
-our $IN_DEFAULT = $IN->Mode();
+    system("mode con cols=$MAX_COL");
+    $OUT->Window(1, 0, 0, 119, 29);
+    
+    #光标高度，若在循环中反复指定高度，则光标会闪烁频繁
+    $OUT->Cursor(1, 1, 99, 1);  
+
+    our $IN_DEFAULT = $IN->Mode();
+}
 
 our $File;
 if ( defined $ARGV[0] and (-e $ARGV[0]) )
@@ -37,39 +45,11 @@ else
     $File = encode('gbk', ".\\Notes.db");
 }
 
-$OUT->Cursor(1, 1, 99, 1);  #这里设置了光标高度，后面就不需要再设置了。
-                            #如果后面每次都指定了高度，则光标会闪烁频繁以至于移动时看不见
-
 $IN->Mode(ENABLE_MOUSE_INPUT);
 $OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
 
-
 my %hash;
 my @info;
-
-=struct
-    存储不同层次下的菜单列表信息
-    @info = (
-        {                  # ---> level 0
-            "key1" => 
-            {   x    =>value, 
-                light=>bool, 
-                str  =>keyname, 
-                ref  =>self
-                y    =>value,
-                length => strlen
-            },
-            "key2" => {},
-            "key3" => {},
-        },
-
-        {                  # ---> level 1
-            "key1/name1" => {},
-            "key1/name2" => {},
-            ...
-        },
-    )
-=cut
 
 &load_data( \%hash, $File );
 
