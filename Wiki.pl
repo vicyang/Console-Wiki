@@ -1021,47 +1021,6 @@ COMMAND:
         return $inp;
     }
 
-    sub linesInput 
-    {
-        our $IN_DEFAULT;
-        my $line;
-        my $inp;
-        my $prompt;
-        my $PREV_IN_MODE;
-        my $PREV_RECT;
-        my @arr;
-
-        $line=$MAX_LINE-4;
-        $prompt="INPUT:";
-        $PREV_RECT    = $OUT->ReadRect(0, $line-1, $MAX_COL, $line+1);
-        $PREV_IN_MODE = $IN->Mode();
-        $IN->Mode( $IN_DEFAULT );
-
-        while (1) 
-        {
-            fill_line("-", $MAX_COL, $FG_YELLOW|$BG_CYAN, $line-1);
-            fill_line("-", $MAX_COL, $FG_YELLOW|$BG_CYAN, $line+1);
-            ClearRect(0, $MAX_COL, $line, $line);
-            $OUT->Cursor(0, $line);
-            $OUT->Write($prompt);
-            $inp=<STDIN>;
-            chomp $inp;
-            if (lc($inp) ne "exit") {
-                push(@arr, $inp);
-            } else {
-                last;
-            }
-        }
-        #    如果IN->Mode没有设置为原始状态，<STDIN>将无法退出。
-        # $IN句柄在未设置时<STDIN>还是能够通过ENTER键结束行输入的
-        # 通过print $IN->Mode(); 得到原始 Mode 代码为183
-
-        #恢复
-        $IN->Mode($PREV_IN_MODE);
-        $OUT->WriteRect($PREV_RECT, 0, $line-1, $MAX_COL, $line+1);
-        return @arr;
-    }
-
     sub inputBar 
     {
         our $IN_DEFAULT;
