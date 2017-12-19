@@ -22,28 +22,26 @@ INIT
 
     our $IN = Win32::Console->new(STD_INPUT_HANDLE);
     our $OUT= Win32::Console->new(STD_OUTPUT_HANDLE);
+    our $IN_DEFAULT = $IN->Mode();
 
     system("mode con cols=$MAX_COL");
     $OUT->Window(1, 0, 0, 119, 29);
     
     #光标高度，若在循环中反复指定高度，则光标会闪烁频繁
     $OUT->Cursor(1, 1, 99, 1);  
-
-    our $IN_DEFAULT = $IN->Mode();
+    
+    #默认文件
+    our $File = "notes_crypt.db";
+    our $KEY  = "123";
 }
 
-our $File;
 if ( defined $ARGV[0] and (-e $ARGV[0]) )
 {
     $File = $ARGV[0];
     $File =~s/\\/\//g;
-    $OUT->Title("Wiki $ARGV[0]");
 }
-else
-{
-    $OUT->Title("Default - Notes.db");
-    $File = encode('gbk', ".\\Notes.db");
-}
+
+$OUT->Title("Wiki - $File");
 
 $IN->Mode(ENABLE_MOUSE_INPUT);
 $OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
@@ -1118,8 +1116,8 @@ LOAD_AND_SAVE:
         my ($href, $file) = @_;
         if ( -e $file ) 
         {
-            my $stream = read_file( $file, binmode => ':raw' );
-            $stream =~s/^HEAD//;
+            my $stream = read_file( $file, { binmode => ':raw' } );
+            if ($stream =~/^Salted/i) { decrypt(\$stream, "123"); }
             %$href = %{ thaw( $stream ) };
         }
         if ( (keys %$href) < 1 ) { %$href = ( 'Main' => { 'note'=>"" } ) }
@@ -1129,7 +1127,26 @@ LOAD_AND_SAVE:
     {
         my ($href, $file) = @_;
         $IN->Mode(ENABLE_MOUSE_INPUT);
-        write_file( $file, { binmode=>":raw" }, "HEAD". freeze($href) );
+        my $stream = freeze($href);
+        encrypt( \$stream, $KEY );
+        write_file( $file, { binmode=>":raw" }, $stream );
+    }
+
+    sub encrypt
+    {
+        my ($data_ref, $key) = @_;
+        my $cipher = Crypt::CBC->new( -key => $key, -cipher => 'Blowfish' );
+        #加密之前加一段头信息
+        $$data_ref = "HEAD". $$data_ref;
+        $$data_ref = $cipher->encrypt( $$data_ref );
+    }
+
+    sub decrypt
+    {
+        my ($data_ref, $key) = @_;
+        my $cipher = Crypt::CBC->new( -key => $key, -cipher => 'Blowfish' );
+        $$data_ref = $cipher->decrypt( $$data_ref );
+        $$data_ref =~s/^HEAD//;
     }
 
     sub logfile 
