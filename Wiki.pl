@@ -1180,6 +1180,7 @@ LOAD_AND_SAVE:
         if ( -e $file ) 
         {
             my $stream = read_file( $file, binmode => ':raw' );
+            $stream =~s/^HEAD//;
             %$href = %{ thaw( $stream ) };
         }
         if ( (keys %$href) < 1 ) { %$href = ( 'Main' => { 'note'=>"" } ) }
@@ -1189,7 +1190,7 @@ LOAD_AND_SAVE:
     {
         my ($href, $file) = @_;
         $IN->Mode(ENABLE_MOUSE_INPUT);
-        write_file( $file, { binmode=>":raw" }, freeze($href) );
+        write_file( $file, { binmode=>":raw" }, "HEAD". freeze($href) );
     }
 
     sub logfile 
