@@ -30,14 +30,16 @@ say "Creating Data";
 say "\nEncrypting\n";
 {
     my $cipher = Crypt::CBC->new( -key => $key, -cipher => 'Blowfish' );
-    my $ciphertext = $cipher->encrypt( $stream );
+    my $ciphertext = $cipher->encrypt( "HEAD". $stream );
     write_file( $enc_file, { binmode => ":raw" }, $ciphertext );
 }
 
 say 'Decrypting';
 {
-    my $cipher = Crypt::CBC->new( -key => $key, -cipher => 'Blowfish' );
+    my $cipher = Crypt::CBC->new( -key => $key, -cipher => 'Blowfish');
     my $ciphertext = read_file( $enc_file, binmode => ":raw" );
     my $plaintext  = $cipher->decrypt($ciphertext);
-    dump thaw($plaintext);
+
+    if ( $plaintext=~s/^HEAD// ) { dump thaw($plaintext) }
+    else                         { print "false\n"       }
 }

@@ -39,6 +39,14 @@ sub get_password
             if ( chr($st[5]) =~ /[\x20-\x7e]/ ) { print "*"; $str .= chr($st[5]) }
             elsif ( $st[5] == 27 ) { exit }
             elsif ( $st[5] == 13 ) { last }
+            elsif ( $st[5] == 8 )  { 
+                if ( length($str) > 0 ) 
+                {
+                    print "\b \b";
+                    $str=~s/.$//;
+                    #$str = substr($str, 0, -1);
+                }
+            }
         }
     }
 
