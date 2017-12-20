@@ -48,14 +48,14 @@ $IN->Mode(ENABLE_MOUSE_INPUT);
 my %hash;
 my @info;
 
-&load_data( \%hash, $File );
+load_data( \%hash, $File );
 $OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
 
 GO_BACK:
 #首列
 our @indent = (1);
 @info = ();
-$indent[1] = &expand(\%hash, \%{$info[0]}, "", $indent[0]);  #first key=""
+$indent[1] = expand(\%hash, \%{$info[0]}, "", $indent[0]);  #first key=""
 
 our @prev=();
 our $INDENT = 2;   #统一缩进量
@@ -161,19 +161,19 @@ while (1)
     } 
     elsif ($arr[0]==1 and $arr[1]==1 and $arr[5]==27)
     {
-        &save(\%hash, $File);
+        save(\%hash, $File);
         $OUT->Cls();
         exit;
     }
     elsif ($arr[0]==1 and $arr[1]==1 and lc(chr($arr[5])) eq 's') 
     {
-        &save(\%hash, $File);
+        save(\%hash, $File);
         wrong("", "save!");
     }
     elsif ($arr[0]==1 and $arr[1]==1 and lc(chr($arr[5])) eq 'q') 
     {
         $OUT->Cls();
-        $OUT->Write("Exit with out save\n");
+        $OUT->Write("Exit without saving\n");
         exit;
     }
     elsif ($arr[0]==1 and $arr[1]==1 and $arr[3]==116) #F5 刷新界面从头开始
@@ -252,7 +252,7 @@ sub show_detail
     $BACKUP = $OUT->ReadRect(1, 1, $MAX_COL, $MAX_LINE);
     $IN_MODE_RECORD = $IN->Mode();
 
-SHOW:
+	SHOW:
     $OUT->Cls();
     $OUT->Cursor(0,1);    #从第一行开始写信息
 
@@ -296,7 +296,7 @@ sub show_info
 
     my $line_area = $MAX_LINE - $cy;
     $PREV_RECT = $OUT->ReadRect($cx, $cy, $MAX_COL, $MAX_LINE);
-    &ClearRect($cx, $MAX_COL, $cy, $MAX_LINE);
+    ClearRect($cx, $MAX_COL, $cy, $MAX_LINE);
 
     my $i = 0;
     my $tmpstr;
@@ -614,7 +614,7 @@ MENU_FUNC:
         my ($parent_ref, $path, $lv) = @_;
         my $newkey;
 
-        $newkey = &lineInput();
+        $newkey = lineInput();
         return 0 if ($newkey eq 'exit');
 
         if ( exists $parent_ref->{$newkey} ) 
@@ -645,7 +645,7 @@ MENU_FUNC:
         my $newkey;
         my $last_key;
 
-        $newkey = &lineInput();
+        $newkey = lineInput();
         return 0 if ($newkey eq 'exit');
 
         $path=~/:([^:]+)$/;        #提取子键
@@ -708,7 +708,7 @@ MENU_FUNC:
         my $newkey;
         my $last_key;
 
-        $newkey = &lineInput();
+        $newkey = lineInput();
         return 0 if ($newkey eq 'exit');
 
         $path=~/:([^:]+)$/;        #提取子键
@@ -998,13 +998,13 @@ COMMAND:
                     $OUT->Write("*");
                     $inp .= chr($st[5]);
                 }
-                elsif ( $st[5] == 27 ) { exit }
-                elsif ( $st[5] == 13 ) { last }
+                elsif ( $st[5] == 27 ) { $OUT->Cls(); exit; }
+                elsif ( $st[5] == 13 ) { last; }
                 elsif ( $st[5] == 8 )  { 
                     if ( length($inp) > 0 ) 
                     {
                         $OUT->Write("\b \b");
-                        $inp=~s/.$//;
+                        $inp=~s/.$//;	
                     }
                 }
             }
@@ -1100,7 +1100,7 @@ COMMAND:
         $func_say = "Nothing" unless (defined $func_say);
         $OUT->Cursor(0, 0);
         $OUT->Write("$func_name: $func_say");
-        #$OUT->FillAttr($FG_YELLOW|$BG_CYAN, $MAX_COL-1, 0, 0);
+        $OUT->FillAttr($FG_YELLOW|$BG_CYAN, $MAX_COL-1, 0, 0);
     }
 }
 
@@ -1193,7 +1193,8 @@ LOAD_AND_SAVE:
         if ($$data_ref =~s/^HEAD//) {  }
         else
         { 
-            wrong("decrypt function", "wrong key\n");
+            $OUT->Cls();
+            $OUT->Write("Wrong Key\n");
             exit;
         }
     }
@@ -1209,7 +1210,7 @@ LOAD_AND_SAVE:
     }
 }
 
-ELSE_FUNCTION: 
+OTHER_FUNCTION: 
 {
     sub get_date 
     {
