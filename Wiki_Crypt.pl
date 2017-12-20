@@ -44,12 +44,12 @@ if ( defined $ARGV[0] and (-e $ARGV[0]) )
 $OUT->Title("Wiki - $File");
 
 $IN->Mode(ENABLE_MOUSE_INPUT);
-$OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
 
 my %hash;
 my @info;
 
 &load_data( \%hash, $File );
+$OUT->FillAttr($FG_WHITE | $BG_CYAN, $MATRIX, 0, 0);  #背景填充，0, 0为起点
 
 GO_BACK:
 #首列
@@ -1100,7 +1100,7 @@ COMMAND:
         $func_say = "Nothing" unless (defined $func_say);
         $OUT->Cursor(0, 0);
         $OUT->Write("$func_name: $func_say");
-        $OUT->FillAttr($FG_YELLOW|$BG_CYAN, $MAX_COL-1, 0, 0);
+        #$OUT->FillAttr($FG_YELLOW|$BG_CYAN, $MAX_COL-1, 0, 0);
     }
 }
 
@@ -1191,7 +1191,11 @@ LOAD_AND_SAVE:
         $$data_ref = $cipher->decrypt( $$data_ref );
         #解密之后判断信息头
         if ($$data_ref =~s/^HEAD//) {  }
-        else { wrong("decrypt function", "wrong key"); exit; }
+        else
+        { 
+            wrong("decrypt function", "wrong key\n");
+            exit;
+        }
     }
 
     sub logfile 
