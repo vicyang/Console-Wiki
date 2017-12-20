@@ -977,7 +977,7 @@ COMMAND:
         my $PREV_RECT;
 
         $line = $MAX_LINE - 5;
-        $prompt = "Please input password:";
+        $prompt = "Password:";
         $PREV_RECT    = $OUT->ReadRect(0, $line-1, $MAX_COL, $line+1);
         $IN->Mode( $IN_DEFAULT );
 
