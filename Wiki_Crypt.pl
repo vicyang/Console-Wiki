@@ -967,24 +967,30 @@ MENU_FUNC:
 
 COMMAND: 
 {
+	sub init_input_mode
+	{
+		our $IN_DEFAULT;
+		my $line = $MAX_LINE - 5;
+        fill_line("-", $MAX_COL, $FG_LIGHTGRAY|$BG_BLACK, $line-1);
+        fill_line("-", $MAX_COL, $FG_LIGHTGRAY|$BG_BLACK, $line+1);
+        $IN->Mode( $IN_DEFAULT );
+	}
+
     sub get_password
     {
-        our $IN_DEFAULT;
-        my $line;
         my $inp;
         my $prompt;
         my $PREV_IN_MODE;
         my $PREV_RECT;
 
-        $line = $MAX_LINE - 5;
+        my $line = $MAX_LINE - 5;
         $prompt = "Password:";
         $PREV_RECT    = $OUT->ReadRect(0, $line-1, $MAX_COL, $line+1);
-        $IN->Mode( $IN_DEFAULT );
+        init_input_mode();
 
-        fill_line("-", $MAX_COL, $FG_LIGHTGRAY|$BG_BLACK, $line-1);
-        fill_line("-", $MAX_COL, $FG_LIGHTGRAY|$BG_BLACK, $line+1);
         $OUT->Cursor(0, $line);
         $OUT->Write($prompt);
+        $inp = "";
 
         while (1)
         {
@@ -1027,10 +1033,8 @@ COMMAND:
         $prompt="Command:";
         $PREV_RECT    = $OUT->ReadRect(0, $line-1, $MAX_COL, $line+1);
         $PREV_IN_MODE = $IN->Mode();
-        $IN->Mode( $IN_DEFAULT );
+        init_input_mode();
 
-        fill_line("-", $MAX_COL, $FG_YELLOW|$BG_CYAN, $line-1);
-        fill_line("-", $MAX_COL, $FG_YELLOW|$BG_CYAN, $line+1);
         ClearRect(0, $MAX_COL, $line, $line);
         $OUT->Cursor(0, $line);
         $OUT->Write($prompt);
