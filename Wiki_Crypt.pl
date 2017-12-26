@@ -84,7 +84,6 @@ while (1)
             for my $path (keys %{$info[$i]})   #这个$path是fullpath的
             {
                 #如果位于某个条目并且状态并非高亮 -> 切换到高亮并显示下一级条目
-
                 if ( inItem( $info[$i]{$path}, @arr[1,2]  ) )
                 {
                     $inside++;
@@ -96,7 +95,6 @@ while (1)
                 {
                     #加一句cursor 0,0 似乎能阻止条目高亮出现缺口
                     $OUT->Cursor(0,0);
-
                     HighLightItem( $info[$i]{$path} );
 
                     #清理次级高亮条目 (首层的光标改变时), 放在expand之前执行，
@@ -142,17 +140,10 @@ while (1)
                 #右键菜单
                 if ( inItem($info[$i]{$path}, @arr[1,2]) and $arr[3]==2 )
                 {
-                    #MARK_1 取消清理子键信息
-                    #在调用菜单事件之前，清理子键信息
-                    for my $clear ($j..$max_level) 
-                    {
-                        #undef %{$info[$clear]};
-                    }
-
                     context_menu(
+                        #缩进        坐标     当前级$info 绝对路径
                         $indent[$j], $arr[2], $info[$i], $path, $i
                     );
-                        #缩进        坐标     当前级$info 绝对路径
                 }
             }
         }
@@ -835,29 +826,30 @@ MENU_FUNC:
         my @arr;
         my ($parent_ref, $path, $lv) = @_;
         my $adjust;
+        my $PREV_RECT = $OUT->ReadRect(0, 0, $MAX_COL, $MAX_LINE);
 
         $path=~/:([^:]+)$/;        #提取子键
         if ( exists $parent_ref->{$1}{'note'} )
         {
-        	#写入临时文件
+            #写入临时文件
             my ($fh, $fname) = tempfile();
             print $fh $parent_ref->{$1}{'note'};
             $fh->close();
             
             my $vimcmd = 
-            	join("|", 
-					"set enc=utf-8",
-					"set fileencodings=utf-8,gbk",
-					"language messages zh_CN.utf-8",
-					"set smartindent",
-					"set tabstop=4",
-					"set shiftwidth=4",
-					"set expandtab",
-					"set softtabstop=4",
-					"set noswapfile",
-					"set nobackup",
-					"set noundofile"
-				);
+                join("|", 
+                    "set enc=utf-8",
+                    "set fileencodings=utf-8,gbk",
+                    "language messages zh_CN.utf-8",
+                    "set smartindent",
+                    "set tabstop=4",
+                    "set shiftwidth=4",
+                    "set expandtab",
+                    "set softtabstop=4",
+                    "set noswapfile",
+                    "set nobackup",
+                    "set noundofile"
+                );
 
             #vim
             system("vim -c \"$vimcmd\" $fname");
@@ -867,6 +859,7 @@ MENU_FUNC:
             unlink $fname;
         }
 
+        $OUT->WriteRect($PREV_RECT, 0, 0, $MAX_COL, $MAX_LINE);
         #调用vim之后鼠标无响应，重新开启
         $IN->Mode(ENABLE_MOUSE_INPUT);
     }
@@ -1029,7 +1022,7 @@ COMMAND:
         my $PREV_IN_MODE;
         my $PREV_RECT;
 
-        $line=$MAX_LINE-4;
+        $line=$MAX_LINE-5;
         $prompt="Command:";
         $PREV_RECT    = $OUT->ReadRect(0, $line-1, $MAX_COL, $line+1);
         $PREV_IN_MODE = $IN->Mode();
@@ -1044,7 +1037,7 @@ COMMAND:
         #    如果IN->Mode没有设置为原始状态，<STDIN>将无法退出。
         # $IN句柄在未设置时<STDIN>还是能够通过ENTER键结束行输入的
         # 通过print $IN->Mode(); 得到原始 Mode 代码为183
-        #恢复
+        # 恢复
         $IN->Mode($PREV_IN_MODE);
         $OUT->WriteRect($PREV_RECT, 0, $line-1, $MAX_COL, $line+1);
         return $inp;
