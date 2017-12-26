@@ -5,9 +5,13 @@ use Time::HiRes qw/sleep time/;
 use Encode      qw/from_to encode decode/;
 use Storable    qw/freeze thaw/;
 use Crypt::CBC;
+use Cwd;
 use File::Slurp;
 use File::Temp  qw/tempfile/;
 use Win32::Console;
+use FindBin;
+use lib $FindBin::Bin;  #添加脚本路径到lib搜索目录
+use command;
 
 use IO::Handle;
 STDOUT->autoflush(1);
@@ -29,10 +33,12 @@ INIT
     
     #光标高度，若在循环中反复指定高度，则光标会闪烁频繁
     $OUT->Cursor(1, 1, 99, 1);  
-    
+
     #默认文件
     our $File = "notes_crypt.db";
-    our $KEY  = get_password();
+    our $KEY  = command::get_password( $IN, $OUT );
+
+    exit;
 }
 
 if ( defined $ARGV[0] and (-e $ARGV[0]) )
@@ -159,7 +165,7 @@ while (1)
     elsif ($arr[0]==1 and $arr[1]==1 and lc(chr($arr[5])) eq 's') 
     {
         save(\%hash, $File);
-        wrong("", "save!");
+        command::wrong("", "save!");
     }
     elsif ($arr[0]==1 and $arr[1]==1 and lc(chr($arr[5])) eq 'q') 
     {
@@ -265,7 +271,7 @@ sub show_detail
         }
         elsif ($arr[0]==1 and $arr[3]==17) #control
         {
-            $inp = inputBar( $item_ref );
+            $inp = command::inputBar( $item_ref );
             $IN->Mode($IN_MODE_RECORD);
             $OUT->Cursor(0, 0);
             goto SHOW;
@@ -605,7 +611,7 @@ MENU_FUNC:
         my ($parent_ref, $path, $lv) = @_;
         my $newkey;
 
-        $newkey = lineInput();
+        $newkey = command::lineInput();
         return 0 if ($newkey eq 'exit');
 
         if ( exists $parent_ref->{$newkey} ) 
@@ -636,7 +642,7 @@ MENU_FUNC:
         my $newkey;
         my $last_key;
 
-        $newkey = lineInput();
+        $newkey = command::lineInput();
         return 0 if ($newkey eq 'exit');
 
         $path=~/:([^:]+)$/;        #提取子键
@@ -699,7 +705,7 @@ MENU_FUNC:
         my $newkey;
         my $last_key;
 
-        $newkey = lineInput();
+        $newkey = command::lineInput();
         return 0 if ($newkey eq 'exit');
 
         $path=~/:([^:]+)$/;        #提取子键
@@ -955,149 +961,6 @@ MENU_FUNC:
             expand($parent_ref, $info[$lv], $path, $indent[$lv]+$adjust);
         
         goto GO_CONTINUE;
-    }
-}
-
-COMMAND: 
-{
-	sub init_input_mode
-	{
-		our $IN_DEFAULT;
-		my $line = $MAX_LINE - 5;
-        fill_line("-", $MAX_COL, $FG_LIGHTGRAY|$BG_BLACK, $line-1);
-        fill_line("-", $MAX_COL, $FG_LIGHTGRAY|$BG_BLACK, $line+1);
-        $IN->Mode( $IN_DEFAULT );
-	}
-
-    sub get_password
-    {
-        my $inp;
-        my $prompt;
-        my $PREV_IN_MODE;
-        my $PREV_RECT;
-
-        my $line = $MAX_LINE - 5;
-        $prompt = "Password:";
-        $PREV_RECT    = $OUT->ReadRect(0, $line-1, $MAX_COL, $line+1);
-        init_input_mode();
-
-        $OUT->Cursor(0, $line);
-        $OUT->Write($prompt);
-        $inp = "";
-
-        while (1)
-        {
-            sleep 0.01;
-            @st = $IN->Input();
-            next if ($#st < 0);
-            if ( $st[0] == 1 and $st[1] == 1 )
-            {
-                if ( chr($st[5]) =~ /[\x20-\x7e]/ ) 
-                { 
-                    $OUT->Write("*");
-                    $inp .= chr($st[5]);
-                }
-                elsif ( $st[5] == 27 ) { $OUT->Cls(); exit; }
-                elsif ( $st[5] == 13 ) { last; }
-                elsif ( $st[5] == 8 )  { 
-                    if ( length($inp) > 0 ) 
-                    {
-                        $OUT->Write("\b \b");
-                        $inp=~s/.$//;	
-                    }
-                }
-            }
-        }
-
-        $OUT->WriteRect($PREV_RECT, 0, $line-1, $MAX_COL, $line+1);
-        return $inp;
-    }
-
-    sub lineInput 
-    {
-        our $IN_DEFAULT;
-        my $line;
-        my $inp;
-        my $prompt;
-        my $PREV_IN_MODE;
-        my $PREV_RECT;
-
-        $line=$MAX_LINE-5;
-        $prompt="Command:";
-        $PREV_RECT    = $OUT->ReadRect(0, $line-1, $MAX_COL, $line+1);
-        $PREV_IN_MODE = $IN->Mode();
-        init_input_mode();
-
-        ClearRect(0, $MAX_COL, $line, $line);
-        $OUT->Cursor(0, $line);
-        $OUT->Write($prompt);
-        $inp=<STDIN>;
-        chomp $inp;
-
-        #    如果IN->Mode没有设置为原始状态，<STDIN>将无法退出。
-        # $IN句柄在未设置时<STDIN>还是能够通过ENTER键结束行输入的
-        # 通过print $IN->Mode(); 得到原始 Mode 代码为183
-        # 恢复
-        $IN->Mode($PREV_IN_MODE);
-        $OUT->WriteRect($PREV_RECT, 0, $line-1, $MAX_COL, $line+1);
-        return $inp;
-    }
-
-    sub inputBar 
-    {
-        our $IN_DEFAULT;
-        my $item_ref = shift;
-        my $line;
-        my $inp;
-        my $prompt;
-        my $tmpstr;
-        my $PREV_IN_MODE;
-        my $PREV_RECT;
-
-        $line = $MAX_LINE - 4;
-        $prompt="Input:";
-        $PREV_RECT    = $OUT->ReadRect(0, $line-1, $MAX_COL, $line+1);
-        $PREV_IN_MODE = $IN->Mode();
-        $IN->Mode( $IN_DEFAULT );
-
-        while (1) 
-        {
-            $OUT->Cls();
-            $tmpstr = encode('gbk', decode('utf8', $item_ref->{'note'} ));
-            $OUT->Cursor(0, 1);
-            $OUT->Write( $tmpstr );
-            fill_line("-", $MAX_COL, $FG_YELLOW|$BG_BLACK, $line-1);
-            fill_line("-", $MAX_COL, $FG_YELLOW|$BG_BLACK, $line+1);
-            ClearRect(0, $MAX_COL, $line, $line);  #清理输入的行
-
-            $OUT->Cursor(0, $line);                #回到行首
-            $OUT->Write( $prompt );
-            $OUT->FillAttr(
-                $FG_YELLOW|$BG_BLACK, 
-                $MAX_COL,
-                0, 
-                $line
-            );
-
-            $inp = <STDIN>;
-            last if (lc($inp) eq "exit\n");
-            $inp =~s/([^\r])\n/$1\r\n/gs;
-            $item_ref->{'note'} .= $inp;
-        }
-
-        #恢复 STDIN
-        $IN->Mode($PREV_IN_MODE);
-        $OUT->WriteRect($PREV_RECT, 0, $line-1, $MAX_COL, $line+1);
-        return $inp;
-    }
-
-    sub wrong 
-    {
-        my ($func_name, $func_say) = @_;
-        $func_say = "Nothing" unless (defined $func_say);
-        $OUT->Cursor(0, 0);
-        $OUT->Write("$func_name: $func_say");
-        $OUT->FillAttr($FG_YELLOW|$BG_CYAN, $MAX_COL-1, 0, 0);
     }
 }
 
