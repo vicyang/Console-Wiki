@@ -40,8 +40,7 @@ INIT
     $OUT->Cursor(1, 1, 99, 1);  
 
     #默认文件
-    our $File = "notes_crypt.db";
-    our $KEY  = get_password( $IN, $OUT );
+    our $File = "notes_plain.db";
 }
 
 if ( defined $ARGV[0] and (-e $ARGV[0]) )
