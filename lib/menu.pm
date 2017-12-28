@@ -48,7 +48,8 @@ sub context_menu
     $indent[1] = 
         expand_menu($menus, \%{$menu_inf[0]}, "", $indent[0], $inity);  #显示菜单并记录菜单信息
 
-CONTEXT_WHILE: while (1)
+    CONTEXT_WHILE: 
+    while (1)
     {
         sleep 0.03;
         @arr = $IN->Input();
